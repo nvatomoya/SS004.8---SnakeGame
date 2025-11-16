@@ -26,7 +26,7 @@ bool quitting = false;
 enum Direction { LEFT=0, UP=1, DOWN=2, RIGHT=3 };
 
 
-// ---- WINDOWS: B?t ANSI mode ----
+// ---- WINDOWS: Bat ANSI tren Windows ----
 #ifdef _WIN32
 void enableAnsiWindows() {
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -38,7 +38,7 @@ void enableAnsiWindows() {
 }
 #endif
 
-// ---- LINUX: t?t ch? ?? canonical ?? ??c non-blocking ----
+// ---- LINUX: tat che do canonical va dat non-blocking ----
 #ifndef _WIN32
 struct TermSaver {
     struct termios orig{};
@@ -70,14 +70,14 @@ struct TermSaver {
 #endif
 
 
-// ---- Hàm console ti?n ích ----
+// ---- Ham console tien ich ----
 void hideCursor()  { cout << "\x1B[?25l"; }
 void showCursor()  { cout << "\x1B[?25h"; }
 void moveCursorHome(){ cout << "\x1B[H"; }
 void clearScreenOnce() { cout << "\x1B[2J"; }
 
 
-// ---- ??c phím không ch?n ----
+// ---- Doc phim khong chan ----
 int getCharNonBlocking() {
 #ifdef _WIN32
     if (_kbhit()) {
@@ -97,4 +97,73 @@ int getCharNonBlocking() {
 #endif
 }
 
+struct Game {
+    deque<pii> snake;
+    pii food;
+    Direction dir;
+    int width, height;
+    bool over = false;
 
+    Game(int w = 40, int h = 20): width(w), height(h) {
+        reset();
+    }
+    void reset() {
+        snake.clear();
+        int sx = width/2, sy = height/2;
+
+        snake.push_back({sx, sy});
+        snake.push_back({sx+1, sy});
+        snake.push_back({sx+2, sy});
+        dir = LEFT;
+        placeFood();
+        score = 0;
+        over = false;
+    }
+    void placeFood() {
+        static mt19937 rng((unsigned)chrono::high_resolution_clock::now().time_since_epoch().count());
+        uniform_int_distribution<int> dx(1, width-2), dy(1, height-2);
+        while (true) {
+            int fx = dx(rng), fy = dy(rng);
+            bool on = false;
+            for (auto &s: snake) if (s.first==fx && s.second==fy) { on = true; break; }
+            if (!on) { food = {fx, fy}; break; }
+        }
+    }
+    void changeDirFromKey(int key) {
+    if (key==0) return;
+    char c = (char)key;
+    if (c >= 'A' && c <= 'Z') c = c - 'A' + 'a';
+
+    Direction nd = dir;
+
+    if (c == 'w') nd = UP;
+    else if (c == 'a') nd = LEFT;
+    else if (c == 's') nd = DOWN;
+    else if (c == 'd') nd = RIGHT;
+
+    if ((dir==LEFT && nd==RIGHT) || (dir==RIGHT && nd==LEFT) ||
+        (dir==UP && nd==DOWN) || (dir==DOWN && nd==UP)) return;
+
+    dir = nd;
+}
+    void update() {
+        if (over) return;
+        pii head = snake.front();
+        pii nh = head;
+        if (dir==LEFT) nh.first -= 1;
+        else if (dir==RIGHT) nh.first += 1;
+        else if (dir==UP) nh.second -= 1;
+        else if (dir==DOWN) nh.second += 1;
+        if (nh.first <= 0 || nh.first >= width-1 || nh.second <= 0 || nh.second >= height-1) {
+            over = true; return;
+        }
+
+        for (auto &s: snake) if (s.first==nh.first && s.second==nh.second) { over = true; return; }
+
+        snake.push_front(nh);
+        if (nh == food) {
+            score += 10;
+            placeFood();
+        } else snake.pop_back();
+    }
+};
