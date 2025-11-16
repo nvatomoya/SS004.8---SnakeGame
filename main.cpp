@@ -167,3 +167,112 @@ struct Game {
         } else snake.pop_back();
     }
 };
+void drawGameFrame(const Game &g) {
+    stringstream ss;
+
+    for (int x=0; x<g.width; ++x) ss << '#';
+    ss << '\n';
+
+    for (int y=1; y<g.height-1; ++y) {
+        ss << '#';
+        for (int x=1; x<g.width-1; ++x) {
+            char ch = ' ';
+
+            if (x == g.food.first && y == g.food.second)
+                ch = 'O';
+            else {
+                int idx=0;
+                for (auto &s: g.snake) {
+                    if (s.first==x && s.second==y) {
+                        ch = (idx == 0 ? '@' : 'o');
+                        break;
+                    }
+                    ++idx;
+                }
+            }
+
+            ss << ch;
+        }
+        ss << "#\n";
+    }
+
+    for (int x=0; x<g.width; ++x) ss << '#';
+
+    ss << "\nScore: " << score 
+       << "    Controls: W A S D    (q to quit)\n";
+
+    moveCursorHome();
+    cout << ss.str();
+    cout.flush();
+}
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+#ifdef _WIN32
+    enableAnsiWindows();
+#else
+    termSaver.enable();
+#endif
+
+    hideCursor();
+    clearScreenOnce();
+    moveCursorHome();
+
+    Game g(WIDTH, HEIGHT);
+
+    const int TICK_MS = 100;
+    drawGameFrame(g);
+
+    while (!quitting) {
+        int k = getCharNonBlocking();
+
+        if (k) {
+            if (k=='q' || k=='Q') { quitting = true; break; }
+            g.changeDirFromKey(k);
+        }
+
+        g.update();
+        drawGameFrame(g);
+
+        if (g.over) break;
+
+        this_thread::sleep_for(chrono::milliseconds(TICK_MS));
+    }
+
+    drawGameFrame(g);
+
+    if (g.over) {
+        cout << "\nGAME OVER! Final score: " << score << "\n";
+        cout << "Press r to restart, any other key to exit.\n";
+
+        while (true) {
+            int k = getCharNonBlocking();
+            if (k) {
+                if (k=='r' || k=='R') {
+                    g.reset();
+                    while (!g.over) {
+                        int k2 = getCharNonBlocking();
+                        if (k2) {
+                            if (k2=='q' || k2=='Q') { quitting = true; break; }
+                            g.changeDirFromKey(k2);
+                        }
+                        g.update();
+                        drawGameFrame(g);
+                        this_thread::sleep_for(chrono::milliseconds(TICK_MS));
+                    }
+                    drawGameFrame(g);
+                    break;
+                } else break;
+            }
+            this_thread::sleep_for(chrono::milliseconds(50));
+        }
+    }
+
+    showCursor();
+#ifndef _WIN32
+    termSaver.disable();
+#endif
+
+    return 0;
+}
